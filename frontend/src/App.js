@@ -137,14 +137,14 @@ function App() {
             </div>
             
             <div className="upload-section">
-              <span className="step-label">Step 1: Upload Resume (Optional)</span>
+              <span className="step-label">Step 1: Upload Resume (PDF or Image)</span>
               <input 
                 type="file" 
-                accept=".pdf" 
+                accept=".pdf,image/png,image/jpeg,image/webp" 
                 onChange={handleFileUpload} 
                 className="file-input"
               />
-              {uploading && <p className="pulse-text">AI is analyzing your background...</p>}
+              {uploading && <p className="pulse-text">AI is reading your background...</p>}
             </div>
             
             <div>
