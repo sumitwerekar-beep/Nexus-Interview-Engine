@@ -2,17 +2,52 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Send, Award, RefreshCw, User, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import './App.css';
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 function App() {
   const [role, setRole] = useState("");
+  const [resumeContext, setResumeContext] = useState("");
   const [isStarted, setIsStarted] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [evaluation, setEvaluation] = useState(null);
   const chatEndRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+   const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('resume', file);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/upload-resume', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        console.error("Server error:", err);
+        alert(err?.error || "Upload failed: " + response.status);
+        return;
+      }
+      
+      const data = await response.json();
+      if (data.resumeContext) setResumeContext(data.resumeContext);
+      alert(data.message || "Resume processed!");
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert("Failed to upload resume.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => { scrollToBottom(); }, [messages]);
@@ -22,7 +57,7 @@ function App() {
     setIsStarted(true);
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE}/generate-question`, { role, history: [] });
+      const res = await axios.post(`${API_BASE}/generate-question`, { role, history: [], resumeContext });
       setMessages([{ type: 'ai', text: res.data.question }]);
     } catch (err) {
       console.error(err);
@@ -41,17 +76,16 @@ function App() {
     setEvaluation(null);
 
     try {
-      // 1. Get Evaluation
       const evalRes = await axios.post(`${API_BASE}/evaluate-answer`, { 
         question: currentQuestion, 
         answer: userMsg 
       });
       setEvaluation(evalRes.data);
 
-      // 2. Get Next Question
       const nextRes = await axios.post(`${API_BASE}/generate-question`, { 
         role, 
-        history: [...messages, { type: 'user', text: userMsg }] 
+        history: [...messages, { type: 'user', text: userMsg }],
+        resumeContext 
       });
       setMessages(prev => [...prev, { type: 'ai', text: nextRes.data.question }]);
     } catch (err) {
@@ -62,85 +96,131 @@ function App() {
 
   if (!isStarted) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center">
-          <div className="bg-blue-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Cpu className="text-blue-400 w-8 h-8" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">AI Interviewer</h1>
-          <p className="text-slate-400 mb-8">Master your next career move with real-time AI feedback.</p>
-          <input 
-            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-            placeholder="What role are you interviewing for?"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          />
-          <button onClick={startInterview} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-blue-900/20">
-            Begin Session
-          </button>
-        </motion.div>
+      <div className="app-container">
+        {/* Decorative Background Orbs */}
+        <div className="bg-orb orb-1"></div>
+        <div className="bg-orb orb-2"></div>
+
+        <div className="hero-section">
+          {/* Left Side: Marketing / Hero Copy */}
+          <motion.div 
+            initial="hidden" 
+            animate="visible" 
+            variants={{
+              hidden: { opacity: 0 },
+              visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+            }} 
+            className="hero-content"
+          >
+             <motion.h1 variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 }}} className="hero-title">
+               Ace Your Next <br/><span className="text-gradient">Technical Interview</span>
+             </motion.h1>
+             <motion.p variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 }}} className="hero-description">
+               Simulate high-pressure interview scenarios with our state-of-the-art AI. 
+               Receive real-time, actionable feedback on your answers and learn exactly how to perfect your delivery.
+             </motion.p>
+             <motion.ul variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 }}} className="hero-features">
+               <motion.li variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 }}}><Award size={24} className="feature-icon"/> <span>Instant, granular feedback on your responses</span></motion.li>
+               <motion.li variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 }}}><Cpu size={24} className="feature-icon"/> <span>Tailored questions based strictly on your resume</span></motion.li>
+               <motion.li variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 }}}><User size={24} className="feature-icon"/> <span>Endless, unique practice for any role or seniority</span></motion.li>
+             </motion.ul>
+          </motion.div>
+
+          {/* Right Side: Setup Card */}
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} className="setup-card">
+            <div className="setup-icon-wrapper">
+              <Cpu size={32} color="var(--accent-color)" />
+            </div>
+            <div>
+              <h2 className="setup-title">Begin Session</h2>
+              <p className="setup-subtitle">Personalize your AI examiner.</p>
+            </div>
+            
+            <div className="upload-section">
+              <span className="step-label">Step 1: Upload Resume (Optional)</span>
+              <input 
+                type="file" 
+                accept=".pdf" 
+                onChange={handleFileUpload} 
+                className="file-input"
+              />
+              {uploading && <p className="pulse-text">AI is analyzing your background...</p>}
+            </div>
+            
+            <div>
+              <input 
+                className="text-input"
+                placeholder="Ex: Senior Frontend Developer"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+              />
+            </div>
+            
+            <button onClick={startInterview} className="primary-button">
+              Start Interview
+            </button>
+          </motion.div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col items-center p-4">
-      <div className="max-w-4xl w-full flex flex-col h-[90vh] bg-slate-900/50 rounded-3xl border border-slate-800 backdrop-blur-xl overflow-hidden shadow-2xl">
+    <div className="interview-layout">
+      <div className="chat-container">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="font-medium text-slate-300">Live Interview: {role}</span>
+        <div className="chat-header">
+          <div className="header-status">
+            <div className="status-dot" />
+            <span>Live Interview: {role}</span>
           </div>
-          <button onClick={() => window.location.reload()} className="text-slate-500 hover:text-white transition-colors">
+          <button onClick={() => window.location.reload()} className="icon-button">
             <RefreshCw size={18} />
           </button>
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="chat-messages">
           <AnimatePresence>
             {messages.map((m, i) => (
               <motion.div key={i} initial={{ opacity: 0, x: m.type === 'ai' ? -10 : 10 }} animate={{ opacity: 1, x: 0 }} 
-                className={`flex ${m.type === 'ai' ? 'justify-start' : 'justify-end'}`}>
-                <div className={`max-w-[80%] p-4 rounded-2xl flex gap-3 ${m.type === 'ai' ? 'bg-slate-800 border border-slate-700 text-white' : 'bg-blue-600 text-white ml-auto'}`}>
-                  {m.type === 'ai' ? <Cpu size={20} className="text-blue-400 shrink-0" /> : <User size={20} className="shrink-0" />}
-                  <p className="leading-relaxed">{m.text}</p>
+                className={`message-wrapper ${m.type === 'ai' ? 'message-ai' : 'message-user'}`}>
+                <div className={`message-bubble ${m.type === 'ai' ? 'bubble-ai' : 'bubble-user'}`}>
+                  {m.type === 'ai' ? <Cpu size={20} className="message-icon ai-icon" /> : <User size={20} className="message-icon" />}
+                  <p>{m.text}</p>
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
-          {loading && <div className="text-blue-400 animate-pulse text-sm">AI is thinking...</div>}
+          {loading && <div className="typing-indicator">AI is thinking...</div>}
           <div ref={chatEndRef} />
         </div>
 
         {/* Feedback Panel */}
         {evaluation && (
-          <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="mx-6 mb-4 p-4 bg-slate-800/80 rounded-xl border border-blue-500/30">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-blue-400 font-bold uppercase text-xs tracking-wider">
-                <Award size={14} /> Evaluation Score: {evaluation.score}/10
-              </div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="evaluation-panel">
+            <div className="eval-header">
+              <Award size={14} /> Evaluation Score: {evaluation.score}/10
             </div>
-            <p className="text-sm italic text-slate-300 mb-2">" {evaluation.improvedAnswer} "</p>
-            <div className="grid grid-cols-2 gap-4 text-[11px]">
-              <div className="text-green-400">✅ {evaluation.strengths}</div>
-              <div className="text-red-400">⚠️ {evaluation.weaknesses}</div>
+            <p className="eval-quote">"{evaluation.improvedAnswer}"</p>
+            <div className="eval-grid">
+              <div className="eval-strengths">✅ {evaluation.strengths}</div>
+              <div className="eval-weaknesses">⚠️ {evaluation.weaknesses}</div>
             </div>
           </motion.div>
         )}
 
         {/* Input Area */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/80">
-          <div className="relative flex items-center">
+        <div className="chat-input-area">
+          <div className="input-wrapper">
             <input 
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-4 pr-12 py-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+              className="chat-input"
               placeholder="Type your response here..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             />
-            <button onClick={handleSend} className="absolute right-3 p-2 bg-blue-600 rounded-xl text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/40">
+            <button onClick={handleSend} className="send-button">
               <Send size={18} />
             </button>
           </div>
