@@ -12,55 +12,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
-app.post('/api/upload-resume', upload.single('resume'), async (req, res) => {
-    console.log("📥 Upload route hit!");
-    try {
-        if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-        
-        let extractedText = "";
 
-        if (req.file.mimetype === 'application/pdf') {
-            const data = await pdf(req.file.buffer);
-            extractedText = data.text;
-            
-            if (!extractedText || extractedText.trim().length < 50) {
-                console.log("❌ Failed to extract text from PDF. Length:", extractedText ? extractedText.length : 0);
-                return res.status(400).json({ error: "Could not read text from your PDF. Are you sure it isn't an image or scan?" });
-            }
-        } else if (req.file.mimetype.startsWith('image/')) {
-            console.log("📷 Image detected... running Groq Vision OCR!");
-            const base64Image = req.file.buffer.toString('base64');
-            const dataURI = `data:${req.file.mimetype};base64,${base64Image}`;
-            
-            const completion = await groq.chat.completions.create({
-                model: "llama-3.2-11b-vision-preview",
-                messages: [
-                    {
-                        role: "user",
-                        content: [
-                            { type: "text", text: "Act as an OCR text extractor. Extract and return absolutely all readable text from this image perfectly so it can be used as a plain-text resume. Do not add any conversational filler, just return the raw text." },
-                            { type: "image_url", image_url: { url: dataURI } }
-                        ]
-                    }
-                ],
-                temperature: 0.1
-            });
-            extractedText = completion.choices[0].message.content;
-            
-            if (!extractedText || extractedText.trim().length < 20) {
-               return res.status(400).json({ error: "Could not detect adequate text from this image." });
-            }
-        } else {
-            return res.status(400).json({ error: "Unsupported file type. Please upload a PDF or Image." });
-        }
-
-        console.log("✅ Resume parsed successfully, extracted characters:", extractedText.length);
-        res.json({ message: "Resume analyzed! AI is ready.", resumeContext: extractedText });
-    } catch (error) {
-        console.error("Parse Error:", error);
-        res.status(500).json({ error: "Failed to read the uploaded file." });
-    }
-});
 
 app.post('/api/generate-question', async (req, res) => {
     const { role, history, resumeContext } = req.body;

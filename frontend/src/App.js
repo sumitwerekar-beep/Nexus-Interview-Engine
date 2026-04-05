@@ -17,37 +17,7 @@ function App() {
   const chatEndRef = useRef(null);
   const [uploading, setUploading] = useState(false);
 
-   const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
 
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('resume', file);
-
-    try {
-      const response = await fetch(`${API_BASE}/upload-resume`, {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const err = await response.json().catch(() => null);
-        console.error("Server error:", err);
-        alert(err?.error || "Upload failed: " + response.status);
-        return;
-      }
-      
-      const data = await response.json();
-      if (data.resumeContext) setResumeContext(data.resumeContext);
-      alert(data.message || "Resume processed!");
-    } catch (error) {
-      console.error("Upload failed:", error);
-      alert("Failed to upload resume.");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => { scrollToBottom(); }, [messages]);
@@ -136,16 +106,7 @@ function App() {
               <p className="setup-subtitle">Personalize your AI examiner.</p>
             </div>
             
-            <div className="upload-section">
-              <span className="step-label">Step 1: Upload Resume (PDF or Image)</span>
-              <input 
-                type="file" 
-                accept=".pdf,image/png,image/jpeg,image/webp" 
-                onChange={handleFileUpload} 
-                className="file-input"
-              />
-              {uploading && <p className="pulse-text">AI is reading your background...</p>}
-            </div>
+
             
             <div>
               <input 
