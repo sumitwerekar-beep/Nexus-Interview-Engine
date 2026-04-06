@@ -8,14 +8,13 @@ const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 function App() {
   const [role, setRole] = useState("");
-  const [resumeContext, setResumeContext] = useState("");
+  const [resumeContext] = useState("");
   const [isStarted, setIsStarted] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [evaluation, setEvaluation] = useState(null);
   const chatEndRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
 
 
 
