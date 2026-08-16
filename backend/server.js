@@ -27,7 +27,8 @@ app.post('/api/generate-question', async (req, res) => {
                     INSTRUCTIONS:
                     1. If a resume is provided, ask a specific question about their experience/projects.
                     2. If no resume is provided, ask a standard role-based question.
-                    3. Be concise and professional.`
+                    3. Be concise and professional.
+                    4. Never mention or reference whether a resume was or wasn't provided. Do not say things like "since no resume has been provided" — just ask the question directly, as if starting a normal interview.`
                 },
                 ...history.map(m => ({ role: m.type === 'ai' ? 'assistant' : 'user', content: m.text }))
             ],
