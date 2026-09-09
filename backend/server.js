@@ -1,10 +1,7 @@
-require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk');
 const multer = require('multer');
-const pdf = require('pdf-parse');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
