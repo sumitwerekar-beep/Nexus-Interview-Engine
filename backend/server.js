@@ -24,20 +24,29 @@ app.post('/api/generate-question', async (req, res) => {
     console.log("Generating question, role:", role, "resume context length:", resumeContext ? resumeContext.length : "UNDEFINED/EMPTY");
     try {
         const groq = getGroqClient();
+        const messages = [
+            {
+                role: "system",
+                content: `You are a professional technical interviewer for: ${role}. 
+                RESUME CONTEXT: ${resumeContext || "No resume provided."}
+                INSTRUCTIONS:
+                1. If a resume is provided, ask a specific question about their experience/projects.
+                2. If no resume is provided, ask a standard role-based question.
+                3. Be concise and professional.
+                4. Never mention or reference whether a resume was or wasn't provided. Do not say things like "since no resume has been provided" — just ask the question directly, as if starting a normal interview.`
+            },
+            ...history.map(m => ({ role: m.type === 'ai' ? 'assistant' : 'user', content: m.text }))
+        ];
+
+        if (history.length === 0) {
+            messages.push({ 
+                role: "user", 
+                content: `Please begin the interview for the ${role} position by asking your first question.` 
+            });
+        }
+
         const completion = await groq.chat.completions.create({
-            messages: [
-                {
-                    role: "system",
-                    content: `You are a professional technical interviewer for: ${role}. 
-                    RESUME CONTEXT: ${resumeContext || "No resume provided."}
-                    INSTRUCTIONS:
-                    1. If a resume is provided, ask a specific question about their experience/projects.
-                    2. If no resume is provided, ask a standard role-based question.
-                    3. Be concise and professional.
-                    4. Never mention or reference whether a resume was or wasn't provided. Do not say things like "since no resume has been provided" — just ask the question directly, as if starting a normal interview.`
-                },
-                ...history.map(m => ({ role: m.type === 'ai' ? 'assistant' : 'user', content: m.text }))
-            ],
+            messages,
             model: "groq/compound-mini",
         });
         res.json({ question: completion.choices[0].message.content });
