@@ -19,7 +19,7 @@ function getGroqClient() {
     return new Groq({ apiKey: process.env.GROQ_API_KEY });
 }
 
-app.post('/api/generate-question', async (req, res) => {
+const handleGenerateQuestion = async (req, res) => {
     const { role, history = [], resumeContext } = req.body;
     console.log("Generating question, role:", role, "resume context length:", resumeContext ? resumeContext.length : "UNDEFINED/EMPTY");
     try {
@@ -57,9 +57,9 @@ app.post('/api/generate-question', async (req, res) => {
             details: error.message || "Unknown error occurred" 
         });
     }
-});
+};
 
-app.post('/api/evaluate-answer', async (req, res) => {
+const handleEvaluateAnswer = async (req, res) => {
     const { question, answer } = req.body;
     try {
         const groq = getGroqClient();
@@ -88,7 +88,14 @@ app.post('/api/evaluate-answer', async (req, res) => {
             details: error.message || "Unknown error occurred" 
         });
     }
-});
+};
+
+app.post('/api/generate-question', handleGenerateQuestion);
+app.post('/generate-question', handleGenerateQuestion);
+
+app.post('/api/evaluate-answer', handleEvaluateAnswer);
+app.post('/evaluate-answer', handleEvaluateAnswer);
+
 
 const PORT = process.env.PORT || 5000;
 
