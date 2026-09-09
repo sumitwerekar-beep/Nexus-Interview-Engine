@@ -38,7 +38,7 @@ app.post('/api/generate-question', async (req, res) => {
                 },
                 ...history.map(m => ({ role: m.type === 'ai' ? 'assistant' : 'user', content: m.text }))
             ],
-            model: "llama-3.3-70b-versatile",
+            model: "groq/compound-mini",
         });
         res.json({ question: completion.choices[0].message.content });
     } catch (error) {
@@ -62,7 +62,7 @@ app.post('/api/evaluate-answer', async (req, res) => {
                 },
                 { role: "user", content: `Question: ${question}\nAnswer: ${answer}` }
             ],
-            model: "llama-3.3-70b-versatile",
+            model: "groq/compound-mini",
             response_format: { type: "json_object" }
         });
 
