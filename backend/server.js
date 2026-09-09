@@ -7,17 +7,23 @@ const multer = require('multer');
 const pdf = require('pdf-parse');
 
 const app = express();
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
 
+function getGroqClient() {
+    if (!process.env.GROQ_API_KEY) {
+        throw new Error("GROQ_API_KEY environment variable is missing in backend server configuration.");
+    }
+    return new Groq({ apiKey: process.env.GROQ_API_KEY });
+}
 
 app.post('/api/generate-question', async (req, res) => {
-    const { role, history, resumeContext } = req.body;
-    console.log("Generating question, resume context length:", resumeContext ? resumeContext.length : "UNDEFINED/EMPTY");
+    const { role, history = [], resumeContext } = req.body;
+    console.log("Generating question, role:", role, "resume context length:", resumeContext ? resumeContext.length : "UNDEFINED/EMPTY");
     try {
+        const groq = getGroqClient();
         const completion = await groq.chat.completions.create({
             messages: [
                 {
@@ -35,14 +41,18 @@ app.post('/api/generate-question', async (req, res) => {
         });
         res.json({ question: completion.choices[0].message.content });
     } catch (error) {
-        console.error("Groq Error:", error);
-        res.status(500).json({ error: "AI failed to generate question" });
+        console.error("Groq Question Generation Error:", error.message || error);
+        res.status(500).json({ 
+            error: "AI failed to generate question", 
+            details: error.message || "Unknown error occurred" 
+        });
     }
 });
 
 app.post('/api/evaluate-answer', async (req, res) => {
     const { question, answer } = req.body;
     try {
+        const groq = getGroqClient();
         const completion = await groq.chat.completions.create({
             messages: [
                 {
@@ -62,11 +72,25 @@ app.post('/api/evaluate-answer', async (req, res) => {
             res.status(500).json({ error: "AI response was not valid JSON", raw: completion.choices[0].message.content });
         }
     } catch (error) {
-        console.error("Eval Error:", error);
-        res.status(500).json({ error: "Evaluation failed" });
+        console.error("Eval Error:", error.message || error);
+        res.status(500).json({ 
+            error: "Evaluation failed", 
+            details: error.message || "Unknown error occurred" 
+        });
     }
 });
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on http://localhost:${PORT}`);
+        if (!process.env.GROQ_API_KEY) {
+            console.warn("⚠️ WARNING: GROQ_API_KEY is not defined in backend environment variables!");
+        }
+    });
+}
+
+module.exports = app;
+
+

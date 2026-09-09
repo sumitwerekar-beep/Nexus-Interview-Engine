@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Send, Award, RefreshCw, User, Cpu } from 'lucide-react';
+import { Send, Award, RefreshCw, User, Cpu, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 
-const API_BASE = process.env.REACT_APP_API_URL || "https://nexus-interview-engine-1ai-interview.onrender.com/api";
+const API_BASE = process.env.REACT_APP_API_URL || 
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? "http://localhost:5000/api" 
+    : "/api");
+
 
 function App() {
   const [role, setRole] = useState("");
@@ -13,54 +17,71 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [evaluation, setEvaluation] = useState(null);
   const chatEndRef = useRef(null);
 
-
-
   const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  useEffect(() => { scrollToBottom(); }, [messages]);
+  useEffect(() => { scrollToBottom(); }, [messages, error, loading]);
 
   const startInterview = async () => {
     if (!role) return;
     setIsStarted(true);
     setLoading(true);
+    setError(null);
     try {
       const res = await axios.post(`${API_BASE}/generate-question`, { role, history: [], resumeContext });
-      setMessages([{ type: 'ai', text: res.data.question }]);
+      if (res.data && res.data.question) {
+        setMessages([{ type: 'ai', text: res.data.question }]);
+      } else {
+        setError(res.data?.error || "Failed to receive a response from the server.");
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Start interview error:", err);
+      const detail = err.response?.data?.details || err.response?.data?.error || err.message || "Could not connect to the backend server.";
+      setError(`Server Error: ${detail}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input;
-    const currentQuestion = messages[messages.length - 1].text;
+    const currentQuestion = messages[messages.length - 1]?.text || "";
     
     setMessages(prev => [...prev, { type: 'user', text: userMsg }]);
     setInput("");
     setLoading(true);
     setEvaluation(null);
+    setError(null);
 
     try {
-      const evalRes = await axios.post(`${API_BASE}/evaluate-answer`, { 
-        question: currentQuestion, 
-        answer: userMsg 
-      });
-      setEvaluation(evalRes.data);
+      if (currentQuestion) {
+        const evalRes = await axios.post(`${API_BASE}/evaluate-answer`, { 
+          question: currentQuestion, 
+          answer: userMsg 
+        });
+        setEvaluation(evalRes.data);
+      }
 
       const nextRes = await axios.post(`${API_BASE}/generate-question`, { 
         role, 
         history: [...messages, { type: 'user', text: userMsg }],
         resumeContext 
       });
-      setMessages(prev => [...prev, { type: 'ai', text: nextRes.data.question }]);
+      if (nextRes.data && nextRes.data.question) {
+        setMessages(prev => [...prev, { type: 'ai', text: nextRes.data.question }]);
+      } else {
+        setError(nextRes.data?.error || "Failed to generate follow-up question.");
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Send message error:", err);
+      const detail = err.response?.data?.details || err.response?.data?.error || err.message || "Failed to process request.";
+      setError(`Error: ${detail}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (!isStarted) {
@@ -105,18 +126,17 @@ function App() {
               <p className="setup-subtitle">Personalize your AI examiner.</p>
             </div>
             
-
-            
             <div>
               <input 
                 className="text-input"
                 placeholder="Ex: Senior Frontend Developer"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && startInterview()}
               />
             </div>
             
-            <button onClick={startInterview} className="primary-button">
+            <button onClick={startInterview} className="primary-button" disabled={!role.trim()}>
               Start Interview
             </button>
           </motion.div>
@@ -134,7 +154,7 @@ function App() {
             <div className="status-dot" />
             <span>Live Interview: {role}</span>
           </div>
-          <button onClick={() => window.location.reload()} className="icon-button">
+          <button onClick={() => window.location.reload()} className="icon-button" title="Restart Session">
             <RefreshCw size={18} />
           </button>
         </div>
@@ -153,6 +173,25 @@ function App() {
             ))}
           </AnimatePresence>
           {loading && <div className="typing-indicator">AI is thinking...</div>}
+          
+          {error && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="error-banner">
+              <div className="error-title">
+                <AlertCircle size={18} />
+                <span>Interview Engine Error</span>
+              </div>
+              <p className="error-message">{error}</p>
+              <div className="error-actions">
+                <button onClick={messages.length === 0 ? startInterview : handleSend} className="retry-button">
+                  Retry
+                </button>
+                <button onClick={() => setIsStarted(false)} className="retry-button" style={{ background: '#475569' }}>
+                  Back to Setup
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           <div ref={chatEndRef} />
         </div>
 
@@ -179,8 +218,9 @@ function App() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              disabled={loading}
             />
-            <button onClick={handleSend} className="send-button">
+            <button onClick={handleSend} className="send-button" disabled={loading || !input.trim()}>
               <Send size={18} />
             </button>
           </div>
